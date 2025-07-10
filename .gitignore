@@ -1,5 +1,6 @@
 search_outputs
 data/arxiv_papers
 data/user
+data/user/
 volumes
 .env
