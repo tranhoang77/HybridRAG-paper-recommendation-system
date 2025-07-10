@@ -1,12 +1,15 @@
 from embedding import NomicEmbeddings
-from createcollection import Database
-from extractpaper import GrobidPDFExtractor
+from create_collection import Database
+from extract_paper import GrobidPDFExtractor
 from openai import OpenAI
 import numpy as np
 import os
 
 class System:
-    def __init__(self, collection_name, openai_api_key=None):
+    def __init__(self, collection_name, openai_api_key=None, openai_model="gpt-4.1-nano"):
+        if openai_api_key == None:
+            print("No OpenAI API key provided. Using environment variable")
+            
         print("connecting to database")
         self.collection_name = collection_name
         self.database = Database()
@@ -19,6 +22,7 @@ class System:
         self.extract_paper = GrobidPDFExtractor()
         
         print("conecting to openai...")
+        self.openai_model = openai_model
         if openai_api_key:
             self.openai_client = OpenAI(api_key=openai_api_key)
         else:
@@ -40,7 +44,7 @@ class System:
                 text = text[:15000] + "..."
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-nano", 
+                model=self.openai_model, 
                 messages = [
                     {
                         "role": "system",
@@ -79,7 +83,7 @@ class System:
                 text = text[:15000] + "..."
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4.1-nano",
+                model=self.openai_model,
                 messages = [
                     {
                         "role": "system",

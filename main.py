@@ -1,3 +1,5 @@
+# main.py
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
@@ -5,22 +7,22 @@ import pandas as pd
 import os
 from typing import List
 import hashlib
+import json 
 
 app = FastAPI()
 
-# Enable CORS for frontend
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# CSV file path
-CSV_FILE = "/mlcv2/WorkingSpace/Personal/quannh/Project/Project/ohmni/RAG/data/user/ouput.csv"
+CSV_FILE = "data/user/infor.csv"
+SEARCH_OUTPUTS_DIR = "search_outputs" 
 
-# Pydantic models
 class UserRegister(BaseModel):
     email: EmailStr
     password: str
@@ -37,33 +39,26 @@ class TopicDelete(BaseModel):
     email: EmailStr
     topic: str
 
-# Helper functions
 def hash_password(password: str) -> str:
-    """Hash password using SHA-256"""
     return hashlib.sha256(password.encode()).hexdigest()
 
 def init_csv():
-    """Initialize CSV file if it doesn't exist"""
     if not os.path.exists(CSV_FILE):
         df = pd.DataFrame(columns=['email', 'password', 'topic'])
         df.to_csv(CSV_FILE, index=False)
 
 def read_csv() -> pd.DataFrame:
-    """Read CSV file"""
     init_csv()
     return pd.read_csv(CSV_FILE)
 
 def write_csv(df: pd.DataFrame):
-    """Write DataFrame to CSV file"""
     df.to_csv(CSV_FILE, index=False)
 
 def user_exists(email: str) -> bool:
-    """Check if user exists in CSV"""
     df = read_csv()
     return email in df['email'].values
 
 def verify_password(email: str, password: str) -> bool:
-    """Verify user password"""
     df = read_csv()
     user_row = df[df['email'] == email]
     if user_row.empty:
@@ -71,48 +66,34 @@ def verify_password(email: str, password: str) -> bool:
     stored_password = user_row.iloc[0]['password']
     return stored_password == hash_password(password)
 
-# API endpoints
 @app.get("/")
 async def root():
     return {"message": "Topic Manager API"}
 
 @app.post("/register")
 async def register(user: UserRegister):
-    """Register a new user"""
     try:
         if user_exists(user.email):
             raise HTTPException(status_code=400, detail="Email already registered")
-        
         df = read_csv()
         hashed_password = hash_password(user.password)
-        
-        # Add new user row with empty topic initially
         new_row = pd.DataFrame({
             'email': [user.email],
             'password': [hashed_password],
-            'topic': ['']  # Empty topic for initial registration
+            'topic': ['']
         })
-        
         df = pd.concat([df, new_row], ignore_index=True)
         write_csv(df)
-        
         return {"message": "User registered successfully"}
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Registration failed: {str(e)}")
 
 @app.post("/login")
 async def login(user: UserLogin):
-    """Login user"""
     try:
-        if not user_exists(user.email):
+        if not user_exists(user.email) or not verify_password(user.email, user.password):
             raise HTTPException(status_code=401, detail="Invalid email or password")
-        
-        if not verify_password(user.email, user.password):
-            raise HTTPException(status_code=401, detail="Invalid email or password")
-        
         return {"message": "Login successful", "email": user.email}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -120,19 +101,13 @@ async def login(user: UserLogin):
 
 @app.get("/topics/{email}")
 async def get_topics(email: str) -> List[str]:
-    """Get all topics for a user"""
     try:
         if not user_exists(email):
             raise HTTPException(status_code=404, detail="User not found")
-        
         df = read_csv()
         user_topics = df[df['email'] == email]['topic'].tolist()
-        
-        # Filter out empty topics and None values
         topics = [topic for topic in user_topics if topic and str(topic).strip() and str(topic) != 'nan']
-        
         return topics
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -140,28 +115,20 @@ async def get_topics(email: str) -> List[str]:
 
 @app.post("/topics")
 async def add_topic(topic_data: TopicCreate):
-    """Add a new topic for a user"""
     try:
         if not user_exists(topic_data.email):
             raise HTTPException(status_code=404, detail="User not found")
-        
         if not topic_data.topic.strip():
             raise HTTPException(status_code=400, detail="Topic cannot be empty")
-        
         df = read_csv()
-        
-        # Add new row with the topic
         new_row = pd.DataFrame({
             'email': [topic_data.email],
-            'password': [df[df['email'] == topic_data.email].iloc[0]['password']],  # Keep existing password
+            'password': [df[df['email'] == topic_data.email].iloc[0]['password']],
             'topic': [topic_data.topic.strip()]
         })
-        
         df = pd.concat([df, new_row], ignore_index=True)
         write_csv(df)
-        
         return {"message": "Topic added successfully"}
-    
     except HTTPException:
         raise
     except Exception as e:
@@ -169,32 +136,51 @@ async def add_topic(topic_data: TopicCreate):
 
 @app.delete("/topics")
 async def delete_topic(topic_data: TopicDelete):
-    """Delete a topic for a user"""
     try:
         if not user_exists(topic_data.email):
             raise HTTPException(status_code=404, detail="User not found")
-        
         df = read_csv()
-        
-        # Find and remove the specific topic
         condition = (df['email'] == topic_data.email) & (df['topic'] == topic_data.topic)
-        
         if not df[condition].empty:
             df = df[~condition]
             write_csv(df)
             return {"message": "Topic deleted successfully"}
         else:
             raise HTTPException(status_code=404, detail="Topic not found")
-    
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete topic: {str(e)}")
 
-# For development - endpoint to view all data
+
+@app.get("/papers/{topic}")
+async def get_papers_for_topic(topic: str):
+    """
+    Lấy thông tin các paper liên quan đến một topic.
+    Tên file được chuyển đổi từ tên topic. Vd: '3D Object Detection' -> '3D-Object-Detection.json'
+    """
+    try:
+        filename = topic + ".json"
+        
+        print(f"Searching for file: {filename}")
+        file_path = os.path.join(SEARCH_OUTPUTS_DIR, filename)
+        print(f"Looking for file: {file_path}")
+
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail=f"Data for topic '{topic}' not found.")
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data
+
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Error reading data file.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/admin/data")
 async def get_all_data():
-    """Get all data from CSV (for debugging)"""
     try:
         df = read_csv()
         return df.to_dict('records')
@@ -203,4 +189,4 @@ async def get_all_data():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=7705)
+    uvicorn.run(app, host="0.0.0.0", port=8077) # Thay đổi port nếu cần

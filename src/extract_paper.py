@@ -1,10 +1,15 @@
 import requests
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 import json
 
+load_dotenv()
+GROBID_SERVER = os.getenv("GROBID_SERVER")
+
 class GrobidPDFExtractor:
-    def __init__(self, grobid_server="http://192.168.20.156:8070"):
+    def __init__(self, grobid_server=GROBID_SERVER):
         self.grobid_server = grobid_server
         self.session = requests.Session()
     

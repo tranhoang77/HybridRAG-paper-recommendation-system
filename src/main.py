@@ -1,19 +1,24 @@
 import os
 import csv
-from MilvusRAG import System
-from hybridsearch import HybridSearcher
-from sendemail import GmailMailer
-from downloadpaper import ArxivPaperDownloader
+from dotenv import load_dotenv
+from process import System
+from hybrid_search import HybridSearcher
+from send_email import GmailMailer
+from download_paper import ArxivPaperDownloader
 
+load_dotenv()
+MILVUS_COLLECTION = os.getenv("MILVUS_COLLECTION", "papers")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", None)
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
 
 if __name__ == "__main__":
-    data_dir = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/ohmni/RAG/data/arxiv_papers'
-    user_info = '/mlcv2/WorkingSpace/Personal/quannh/Project/Project/ohmni/RAG/data/user/infor.csv'
-    downloader = ArxivPaperDownloader(data_dir,)
-    downloader.run()
+    data_dir = 'data/arxiv_papers'
+    user_info = 'data/user/infor.csv'
+    downloader = ArxivPaperDownloader(data_dir,4)
+    #downloader.run()
     
     # Initialize the system
-    rag_system = System(collection_name="test_rag_with_milvus")
+    rag_system = System(collection_name=MILVUS_COLLECTION, openai_api_key=OPENAI_API_KEY, openai_model=OPENAI_MODEL)
     
     # Example usage
     print("\n" + "="*60)
@@ -45,7 +50,7 @@ if __name__ == "__main__":
     """
     
     mailer = GmailMailer()
-    searcher = HybridSearcher(collection_name="test_rag_with_milvus")
+    searcher = HybridSearcher(collection_name=MILVUS_COLLECTION, openai_api_key=OPENAI_API_KEY, openai_model=OPENAI_MODEL)
     with open(user_info, mode='r', encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in reader:
@@ -71,7 +76,7 @@ if __name__ == "__main__":
             </html>
             """
 
-            # Gửi email
+            # Send email
             success = mailer.send_email_html(
                 recipient_email=email,
                 subject="Thông báo paper mới",

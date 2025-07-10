@@ -12,7 +12,6 @@
 <body>
 
     <div class="container">
-        <!-- Login Page -->
         <div id="loginPage" class="page active">
             <h1>Topic Manager</h1>
             <h2>Login</h2>
@@ -31,7 +30,6 @@
             <div id="loginError" class="error" style="display: none;"></div>
         </div>
 
-        <!-- Register Page -->
         <div id="registerPage" class="page">
             <h1>Topic Manager</h1>
             <h2>Register</h2>
@@ -51,7 +49,6 @@
             <div id="registerSuccess" class="success" style="display: none;"></div>
         </div>
 
-        <!-- Dashboard Page -->
         <div id="dashboardPage" class="page">
             <h1>My Topics</h1>
             <div class="user-info">
@@ -63,9 +60,14 @@
             
             <div id="loading" class="loading" style="display: none;">Loading topics...</div>
             <div id="topicsList"></div>
+
+            <div id="paperContainer" class="paper-container">
+                <h2 id="paperTitle" style="display: none;">Related Papers</h2>
+                <div id="paperLoading" class="loading" style="display: none;">Loading papers...</div>
+                <div id="paperDetails"></div>
+            </div>
         </div>
 
-        <!-- Add Topic Page -->
         <div id="addTopicPage" class="page">
             <h2>Add New Topic</h2>
             <form id="addTopicForm">

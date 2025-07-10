@@ -1,9 +1,8 @@
+// script.js
 
-
-const API_BASE_URL = 'http://localhost:7705';
+const API_BASE_URL = 'http://localhost:8777'; 
 let currentUser = null;
 
-// Page navigation functions
 function showPage(pageId) {
     document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
     document.getElementById(pageId).classList.add('active');
@@ -15,9 +14,8 @@ function showDashboard() {
     showPage('dashboardPage');
     loadTopics();
 }
-
 function showAddTopic() { showPage('addTopicPage'); }
-// API helper function
+
 async function apiCall(endpoint, method = 'GET', data = null) {
     const options = {
         method,
@@ -25,25 +23,21 @@ async function apiCall(endpoint, method = 'GET', data = null) {
             'Content-Type': 'application/json',
         }
     };
-    
     if (data) {
         options.body = JSON.stringify(data);
     }
-    
     const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
     return response;
 }
 
-// Authentication functions
+
 document.getElementById('registerForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('registerEmail').value;
     const password = document.getElementById('registerPassword').value;
-    
     try {
         const response = await apiCall('/register', 'POST', { email, password });
         const result = await response.json();
-        
         if (response.ok) {
             document.getElementById('registerSuccess').style.display = 'block';
             document.getElementById('registerSuccess').textContent = 'Registration successful! You can now login.';
@@ -64,11 +58,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value;
     const password = document.getElementById('loginPassword').value;
-    
     try {
         const response = await apiCall('/login', 'POST', { email, password });
         const result = await response.json();
-        
         if (response.ok) {
             currentUser = email;
             document.getElementById('userEmail').textContent = email;
@@ -89,34 +81,44 @@ function logout() {
     showLogin();
     document.getElementById('loginForm').reset();
     document.getElementById('topicsList').innerHTML = '';
+
+    document.getElementById('paperDetails').innerHTML = '';
+    document.getElementById('paperTitle').style.display = 'none';
 }
 
-// Topic management functions
 async function loadTopics() {
     if (!currentUser) return;
     
     document.getElementById('loading').style.display = 'block';
+    document.getElementById('paperDetails').innerHTML = '';
+    document.getElementById('paperTitle').style.display = 'none';
     
     try {
         const response = await apiCall(`/topics/${currentUser}`);
         const topics = await response.json();
-        
         const topicsList = document.getElementById('topicsList');
         
-        if (topics.length === 0) {
-            topicsList.innerHTML = '<div class="no-topics">No topics found. Add your first topic!</div>';
-        } else {
-            topicsList.innerHTML = topics.map((topic, index) => `
-                <div class="topic-item">
-                    <div class="topic-content">${topic}</div>
-                    <div class="topic-actions">
-                        <button class="btn btn-danger" onclick="deleteTopic('${topic}')">Delete</button>
+        if (response.ok) {
+            if (topics.length === 0) {
+                topicsList.innerHTML = '<div class="no-topics">No topics found. Add your first topic!</div>';
+            } else {
+                topicsList.innerHTML = topics.map(topic => `
+                    <div class="topic-item">
+                        <div class="topic-content" onclick="viewPapers('${topic.replace(/'/g, "\\'")}')">
+                            ${topic}
+                        </div>
+                        <div class="topic-actions">
+                            <button class="btn btn-danger" onclick="deleteTopic('${topic.replace(/'/g, "\\'")}')">Delete</button>
+                        </div>
                     </div>
-                </div>
-            `).join('');
+                `).join('');
+            }
+        } else {
+            const error = await response.json();
+            topicsList.innerHTML = `<div class="error">${error.detail || 'Failed to load topics'}</div>`;
         }
     } catch (error) {
-        document.getElementById('topicsList').innerHTML = '<div class="error">Failed to load topics</div>';
+        document.getElementById('topicsList').innerHTML = '<div class="error">Failed to load topics. Network error.</div>';
     } finally {
         document.getElementById('loading').style.display = 'none';
     }
@@ -125,20 +127,14 @@ async function loadTopics() {
 document.getElementById('addTopicForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const topic = document.getElementById('newTopic').value;
-    
     try {
-        const response = await apiCall('/topics', 'POST', { 
-            email: currentUser, 
-            topic 
-        });
+        const response = await apiCall('/topics', 'POST', { email: currentUser, topic });
         const result = await response.json();
-        
         if (response.ok) {
             document.getElementById('addTopicSuccess').style.display = 'block';
             document.getElementById('addTopicSuccess').textContent = 'Topic added successfully!';
             document.getElementById('addTopicError').style.display = 'none';
             document.getElementById('addTopicForm').reset();
-            
             setTimeout(() => {
                 showDashboard();
                 document.getElementById('addTopicSuccess').style.display = 'none';
@@ -156,21 +152,57 @@ document.getElementById('addTopicForm').addEventListener('submit', async (e) => 
 
 async function deleteTopic(topic) {
     if (!confirm('Are you sure you want to delete this topic?')) return;
-    
     try {
-        const response = await apiCall('/topics', 'DELETE', { 
-            email: currentUser, 
-            topic 
-        });
-        
+        const response = await apiCall('/topics', 'DELETE', { email: currentUser, topic });
         if (response.ok) {
-            loadTopics(); // Reload topics list
+            loadTopics();
         } else {
-            alert('Failed to delete topic');
+            const error = await response.json();
+            alert(`Failed to delete topic: ${error.detail}`);
         }
     } catch (error) {
         alert('Network error. Please try again.');
     }
-};
-// Initialize app
+}
+
+async function viewPapers(topic) {
+    const paperDetails = document.getElementById('paperDetails');
+    const paperLoading = document.getElementById('paperLoading');
+    const paperTitle = document.getElementById('paperTitle');
+    
+    paperTitle.innerText = `Related Papers for: ${topic}`;
+    paperTitle.style.display = 'block';
+    paperDetails.innerHTML = '';
+    paperLoading.style.display = 'block';
+
+    try {
+        const response = await apiCall(`/papers/${encodeURIComponent(topic)}`);
+        const papers = await response.json();
+        
+        if (response.ok) {
+            if (papers.length === 0) {
+                paperDetails.innerHTML = '<div class="no-topics">No papers found for this topic.</div>';
+            } else {
+                paperDetails.innerHTML = papers.map(paper => `
+                    <div class="paper-card">
+                        <h3>${paper.title_paper || 'No Title'}</h3>
+                        <em>By: ${paper.paper_authors || 'Unknown Authors'}</em>
+                        <hr>
+                        <h4>Content Summary</h4>
+                        <p>${paper.content || 'No content available.'}</p>
+                        <h4>Novelty Analysis</h4>
+                        <p>${paper.novelty || 'No novelty analysis available.'}</p>
+                    </div>
+                `).join('');
+            }
+        } else {
+            paperDetails.innerHTML = `<div class="error">${papers.detail || 'Failed to load papers.'}</div>`;
+        }
+    } catch (error) {
+        paperDetails.innerHTML = '<div class="error">Network error. Could not fetch paper data.</div>';
+    } finally {
+        paperLoading.style.display = 'none';
+    }
+}
+
 showLogin();

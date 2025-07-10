@@ -1,6 +1,7 @@
 import os
 from typing import List
 from openai import OpenAI
+from dotenv import load_dotenv
 from embedding import NomicEmbeddings
 
 from pymilvus import (
@@ -10,8 +11,11 @@ from pymilvus import (
     FunctionType,
 )
 
+load_dotenv()
+uri = os.getenv("MILVUS_URI")
+
 class Database:
-    def __init__(self, uri="http://192.168.20.156:19530"):
+    def __init__(self, uri=uri):
         self.uri = uri       
         self.client = MilvusClient(uri=self.uri)
         
@@ -48,7 +52,7 @@ class Database:
         schema.add_field(
             field_name="paper_authors",
             datatype=DataType.VARCHAR,
-            max_length=500,
+            max_length=1000,
             analyzer_params=analyzer_params,
         )
         schema.add_field(

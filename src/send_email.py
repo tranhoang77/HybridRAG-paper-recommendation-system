@@ -1,15 +1,26 @@
 
 import csv
+import os
+from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+load_dotenv()
+SMTP_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME", None)
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", None)
+
 class GmailMailer:
-    def __init__(self, sender_email = 'tranvanhoangcs77@gmail.com', sender_password = None):
+    def __init__(self, sender_email = SMTP_USERNAME, sender_password = SMTP_PASSWORD):
+        if not sender_email or not sender_password:
+            raise ValueError("SMTP_USERNAME and SMTP_PASSWORD must be set in the environment variables.")
+        
         self.sender_email = sender_email
         self.sender_password = sender_password
-        self.smtp_host = "smtp.gmail.com"
-        self.smtp_port = 587
+        self.smtp_host = SMTP_HOST
+        self.smtp_port = SMTP_PORT
 
     def send_email_html(self, recipient_email: str, subject: str, html_content: str) -> bool:
         msg = MIMEMultipart("alternative")
@@ -39,7 +50,7 @@ class GmailMailer:
         html_parts = []
 
         if not results:
-            html_parts.append("<p>Không tìm thấy paper nào phù hợp với từ khóa.</p>")
+            html_parts.append("<p>Không tìm thấy paper nào gần đây phù hợp với từ khóa.</p>")
         else:
             for idx, item in enumerate(results, start=1):
                 entity = item.get("hit", {}).get("entity", {})

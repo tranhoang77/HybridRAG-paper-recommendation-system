@@ -33,9 +33,9 @@ class ArxivPaperDownloader:
             'cs.AI'
         ]
 
-        if os.path.exists(self.save_dir):
-            shutil.rmtree(self.save_dir)
-        os.makedirs(self.save_dir) 
+        # if os.path.exists(self.save_dir):
+        #     shutil.rmtree(self.save_dir)
+        # os.makedirs(self.save_dir) 
          
         self.metadata_dict = {}  # key = hash, value = metadata
         self.metadata_json = metadata_json or os.path.join(self.save_dir, 'metadata.json')

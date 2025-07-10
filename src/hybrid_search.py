@@ -3,13 +3,19 @@ import json
 from pymilvus import Collection, connections
 from embedding import NomicEmbeddings
 from openai import OpenAI
+from dotenv import load_dotenv 
+
+load_dotenv()
+MILVUS_URI = os.getenv("MILVUS_URI")
+OpenAI_API_KEY = os.getenv("OPENAI_API_KEY", None)
 
 class HybridSearcher:
-    def __init__(self, collection_name: str, milvus_uri: str = 'http://192.168.20.156:19530', openai_api_key=None):
-        # Kết nối Milvus
+    def __init__(self, collection_name: str, milvus_uri: str = MILVUS_URI, openai_api_key=OpenAI_API_KEY, openai_model: str = "gpt-4.1-nano"):
+        # connect Milvus
         connections.connect('default', uri=milvus_uri)
         self.collection = Collection(name=collection_name)
         self.embeddings = NomicEmbeddings()
+        self.openai_model = openai_model
         self.alpha = 0.5  # weight for dense
         self.beta = 0.5   # weight for sparse
         
@@ -93,7 +99,7 @@ class HybridSearcher:
                 final_list.append(paper)
             else:
                 response = self.openai_client.chat.completions.create(
-                    model="gpt-4.1-nano",
+                    model=self.openai_model,
                     messages = [
                         {
                             "role": "system",
@@ -140,12 +146,13 @@ Respond with only one word: "yes" or "no"."""
             })
 
         os.makedirs("search_outputs", exist_ok=True)
-        output_path = f"../search_outputs/results_{query}.json"
+        output_path = f"search_outputs/{query}.json"
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(json_results, f, ensure_ascii=False, indent=2)
 
-        print(f"[✔] Kết quả đã được lưu vào: {output_path}")
+        print(f"[✔] Save result in: {output_path}")
 
         return final_list
 
